@@ -1,25 +1,38 @@
 pipeline {
     agent any
+
+    environment {
+        DOCKER_IMAGE_FRONTEND = "yourdockerhubusername/contactbook-frontend:latest"
+        DOCKER_IMAGE_BACKEND = "yourdockerhubusername/contactbook-backend:latest"
+    }
+
     stages {
-        stage('Checkout') {
+        stage('Clone Repository') {
             steps {
-                git branch: 'main', url: 'https://github.com/Appajisdsrao/contact-book-using-jenkins-for-cicd.git'
+                git branch: 'main', credentialsId: 'github-credentials', url: 'https://github.com/yourusername/contact-book.git'
             }
         }
+
         stage('Build Docker Images') {
             steps {
-                script {
-                    sh 'docker build -t contact-book-backend -f Backend/Dockerfile Backend/'
-                    sh 'docker build -t contact-book-frontend -f frontend/Dockerfile frontend/'
+                sh 'docker build -t $DOCKER_IMAGE_FRONTEND frontend/'
+                sh 'docker build -t $DOCKER_IMAGE_BACKEND backend/'
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                withDockerRegistry([credentialsId: 'docker-hub-credentials', url: '']) {
+                    sh 'docker push $DOCKER_IMAGE_FRONTEND'
+                    sh 'docker push $DOCKER_IMAGE_BACKEND'
                 }
             }
         }
-        stage('Run Containers') {
+
+        stage('Deploy Containers') {
             steps {
-                script {
-                    sh 'docker run -d -p 5000:5000 --name backend contact-book-backend'
-                    sh 'docker run -d -p 3000:3000 --name frontend contact-book-frontend'
-                }
+                sh 'docker run -d -p 3000:3000 --name contactbook-frontend $DOCKER_IMAGE_FRONTEND'
+                sh 'docker run -d -p 5000:5000 --name contactbook-backend $DOCKER_IMAGE_BACKEND'
             }
         }
     }
